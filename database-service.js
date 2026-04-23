@@ -7,13 +7,12 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ฟังก์ชันดึง Credentials
 async function getAuth() {
     let creds;
     if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
         creds = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
     } else {
-        // สำหรับรันในเครื่อง (Local)
+        // สำหรับรันในเครื่องตัวเอง
         const { default: localCreds } = await import('./swit-project-493904-bbdf1bffa80a.json', { assert: { type: 'json' } });
         creds = localCreds;
     }
@@ -33,14 +32,14 @@ app.post('/db/save', async (req, res) => {
         const { name, score } = req.body;
         await doc.loadInfo();
         const sheet = doc.sheetsByTitle['SWIT1'] || doc.sheetsByIndex[0];
-        const rows = await sheet.getRows();
-        let nextId = 1;
-        if (rows.length > 0) {
-            const lastId = parseInt(rows[rows.length - 1].toObject()['ลำดับ']);
-            if (!isNaN(lastId)) nextId = lastId + 1;
-        }
-        await sheet.addRow({ 'ลำดับ': nextId.toString(), 'ชื่อ': name, 'คะแนน': score });
-        res.json({ success: true, id: nextId });
+        
+        // บันทึกข้อมูล (ลำดับใช้ Timestamp เพื่อให้ไม่ซ้ำ)
+        await sheet.addRow({ 
+            'ลำดับ': new Date().toLocaleString('th-TH'), 
+            'ชื่อ': name, 
+            'คะแนน': score 
+        });
+        res.json({ success: true });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
