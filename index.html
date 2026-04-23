@@ -34,16 +34,8 @@
         h2 {
             text-align: center;
             color: var(--primary);
-            margin-top: 0;
-            font-size: 28px;
-            letter-spacing: 1px;
-        }
-
-        .status-badge {
-            text-align: center;
-            font-size: 14px;
-            margin-bottom: 20px;
-            color: #64748b;
+            margin-bottom: 30px;
+            font-weight: 700;
         }
 
         .form-group {
@@ -54,142 +46,88 @@
             display: block;
             margin-bottom: 8px;
             font-weight: 500;
-            color: #1e293b;
+            color: #475569;
         }
 
         input {
             width: 100%;
-            padding: 12px 16px;
+            padding: 12px;
             border: 2px solid #e2e8f0;
-            border-radius: 12px;
-            font-size: 16px;
-            transition: all 0.3s;
+            border-radius: 10px;
             box-sizing: border-box;
+            transition: all 0.3s;
+            font-size: 16px;
         }
 
         input:focus {
-            outline: none;
             border-color: var(--primary);
+            outline: none;
             box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
         }
 
-        .btn {
+        button {
             width: 100%;
             padding: 14px;
             border: none;
-            border-radius: 12px;
+            border-radius: 10px;
             font-size: 16px;
             font-weight: 700;
             cursor: pointer;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
+            transition: 0.3s;
+            margin-bottom: 10px;
         }
 
-        .btn-save { background: var(--primary); color: white; }
-        .btn-save:hover { background: #4338ca; transform: translateY(-2px); }
+        .btn-save { background-color: var(--primary); color: white; }
+        .btn-save:hover { opacity: 0.9; transform: translateY(-2px); }
 
-        .btn-search { background: #1e293b; color: white; }
-        .btn-search:hover { background: #0f172a; }
-
-        #msgBox {
-            margin: 20px 0;
+        .status-msg {
             padding: 15px;
-            border-radius: 12px;
-            display: none;
+            border-radius: 10px;
+            margin-top: 20px;
             text-align: center;
+            display: none;
             font-weight: 500;
-            animation: fadeIn 0.4s ease;
-        }
-
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } }
-
-        .msg-success { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
-        .msg-error { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
-
-        .search-section {
-            background: #f1f5f9;
-            padding: 20px;
-            border-radius: 16px;
-            margin: 30px 0;
         }
 
         table {
             width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-
-        th {
-            text-align: left;
-            padding: 12px;
-            color: #64748b;
-            font-size: 13px;
-            text-transform: uppercase;
-            border-bottom: 2px solid #f1f5f9;
-        }
-
-        td {
-            padding: 14px 12px;
-            border-bottom: 1px solid #f1f5f9;
-            color: #334155;
-        }
-
-        tr:last-child td { border: none; }
-
-        .history-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
             margin-top: 30px;
+            border-collapse: collapse;
         }
 
-        .refresh-link {
-            color: var(--primary);
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 600;
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
         }
+
+        th { color: var(--primary); }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>🚀 SWIT1 GATEWAY</h2>
-    <p class="status-badge">API Gateway: <span style="color: var(--success)">Online (Port 4000)</span></p>
-
+    <h2>🚀 SWIT1 Ultimate API</h2>
+    
     <div class="form-group">
         <label>ชื่อ-นามสกุล</label>
-        <input type="text" id="name" placeholder="ระบุชื่อผู้ใช้งาน...">
+        <input type="text" id="name" placeholder="ระบุชื่อของคุณ">
     </div>
+    
     <div class="form-group">
         <label>คะแนน</label>
         <input type="number" id="score" placeholder="0 - 100">
     </div>
-    <button class="btn btn-save" onclick="saveData()">💾 บันทึกข้อมูลลงชีต</button>
 
-    <div id="msgBox"></div>
-
-    <div class="search-section">
-        <label>ค้นหาประวัติตามลำดับ (ID)</label>
-        <div style="display: flex; gap: 10px;">
-            <input type="number" id="searchId" placeholder="ใส่เลขลำดับ..." style="margin-bottom: 0;">
-            <button class="btn btn-search" style="width: 120px;" onclick="searchData()">🔍 ค้นหา</button>
-        </div>
-    </div>
-
-    <div class="history-header">
-        <label style="margin-bottom: 0;">📜 ประวัติการบันทึก</label>
-        <span class="refresh-link" onclick="loadHistory()">🔄 อัปเดตตาราง</span>
-    </div>
+    <button class="btn-save" onclick="saveData()">💾 บันทึกข้อมูลลง Google Sheets</button>
     
+    <div id="status" class="status-msg"></div>
+
     <table id="historyTable">
         <thead>
             <tr>
-                <th>ID</th>
-                <th>รายชื่อ</th>
+                <th>ลำดับ</th>
+                <th>ชื่อ</th>
                 <th>คะแนน</th>
             </tr>
         </thead>
@@ -199,14 +137,15 @@
 </div>
 
 <script>
-    const API_URL = 'http://localhost:4000/api';
+    // ดึง URL ของหน้าเว็บปัจจุบันมาใช้เป็น API URL โดยอัตโนมัติ
+    const API_URL = window.location.origin + '/api';
 
-    function showMsg(text, type = 'success') {
-        const box = document.getElementById('msgBox');
-        box.innerText = text;
-        box.className = type === 'success' ? 'msg-success' : 'msg-error';
-        box.style.display = 'block';
-        setTimeout(() => { box.style.display = 'none'; }, 5000);
+    function showMsg(text, type) {
+        const el = document.getElementById('status');
+        el.innerText = text;
+        el.style.display = 'block';
+        el.style.backgroundColor = type === 'success' ? '#dcfce7' : '#fee2e2';
+        el.style.color = type === 'success' ? '#166534' : '#991b1b';
     }
 
     // 1. บันทึกข้อมูล
@@ -217,46 +156,28 @@
         if(!name || !score) return showMsg("⚠️ กรุณากรอกข้อมูลให้ครบ", "error");
 
         try {
+            showMsg("⏳ กำลังบันทึก...", "success");
             const res = await fetch(`${API_URL}/save`, {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name, score })
             });
             const result = await res.json();
             
             if(result.success) {
-                showMsg(`✅ บันทึกสำเร็จ! คุณได้ลำดับที่ ${result.id}`);
+                showMsg(`✅ บันทึกสำเร็จ! ลำดับที่: ${result.id}`, "success");
                 document.getElementById('name').value = '';
                 document.getElementById('score').value = '';
-                loadHistory();
+                loadHistory(); // โหลดตารางใหม่
             } else {
-                showMsg("❌ " + result.error, "error");
+                showMsg("❌ เกิดข้อผิดพลาดจาก Server", "error");
             }
         } catch (err) {
-            showMsg("❌ ไม่สามารถติดต่อ Gateway ได้ (เช็ก Port 4000)", "error");
+            showMsg("❌ ไม่สามารถติดต่อ Gateway ได้ (ตรวจสอบสถานะ Server บน Render)", "error");
         }
     }
 
-    // 2. ค้นหาประวัติ (แบบแก้ Error แล้ว)
-    async function searchData() {
-        const id = document.getElementById('searchId').value;
-        if(!id) return showMsg("⚠️ ระบุ ID ก่อนค้นหา", "error");
-
-        try {
-            const res = await fetch(`${API_URL}/search/${id}`);
-            const result = await res.json();
-            
-            if(result.success) {
-                showMsg(`🔎 พบข้อมูล: ${result.data.ชื่อ} | คะแนน: ${result.data.คะแนน}`, "success");
-            } else {
-                showMsg(`❌ ไม่พบข้อมูลลำดับที่ ${id}`, "error");
-            }
-        } catch (err) {
-            showMsg("❌ ระบบค้นหามีปัญหา", "error");
-        }
-    }
-
-    // 3. โหลดประวัติทั้งหมด
+    // 2. โหลดประวัติ
     async function loadHistory() {
         try {
             const res = await fetch(`${API_URL}/history`);
@@ -266,19 +187,19 @@
             if(Array.isArray(data)) {
                 tbody.innerHTML = data.map(item => `
                     <tr>
-                        <td><b>${item.ลำดับ}</b></td>
-                        <td>${item.ชื่อ}</td>
-                        <td>${item.คะแนน}</td>
+                        <td><b>${item['ลำดับ'] || '-'}</b></td>
+                        <td>${item['ชื่อ'] || '-'}</td>
+                        <td>${item['คะแนน'] || '-'}</td>
                     </tr>
-                `).join('');
+                `).reverse().join(''); // แสดงอันล่าสุดขึ้นก่อน
             }
         } catch (err) {
-            console.error("Load history failed");
+            console.error("Load history error:", err);
         }
     }
 
-    // เริ่มต้นให้โหลดข้อมูลทันที
-    loadHistory();
+    // โหลดข้อมูลทันทีที่เปิดหน้าเว็บ
+    window.onload = loadHistory;
 </script>
 
 </body>
