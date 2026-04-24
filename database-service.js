@@ -12,11 +12,9 @@ async function getAuth() {
     if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
         creds = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
     } else {
-        // สำหรับรันในเครื่องตัวเอง
         const { default: localCreds } = await import('./swit-project-493904-bbdf1bffa80a.json', { assert: { type: 'json' } });
         creds = localCreds;
     }
-
     return new JWT({
         email: creds.client_email,
         key: creds.private_key,
@@ -29,31 +27,24 @@ const doc = new GoogleSpreadsheet('1lCSVFtuio6I6LgXuHs1K6YNEzkUW8KOX3vwxuP2FLgU'
 
 app.post('/db/save', async (req, res) => {
     try {
-        const { name, score } = req.body;
         await doc.loadInfo();
-        const sheet = doc.sheetsByTitle['SWIT1'] || doc.sheetsByIndex[0];
-        
-        // บันทึกข้อมูล (ลำดับใช้ Timestamp เพื่อให้ไม่ซ้ำ)
+        const sheet = doc.sheetsByIndex[0];
         await sheet.addRow({ 
             'ลำดับ': new Date().toLocaleString('th-TH'), 
-            'ชื่อ': name, 
-            'คะแนน': score 
+            'ชื่อ': req.body.name, 
+            'คะแนน': req.body.score 
         });
         res.json({ success: true });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
-    }
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.get('/db/history', async (req, res) => {
     try {
         await doc.loadInfo();
-        const sheet = doc.sheetsByTitle['SWIT1'] || doc.sheetsByIndex[0];
+        const sheet = doc.sheetsByIndex[0];
         const rows = await sheet.getRows();
         res.json(rows.map(r => r.toObject()));
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.listen(3000, () => console.log('Database Service running on port 3000'));
+app.listen(3000, '0.0.0.0', () => console.log('Database Service running on port 3000'));

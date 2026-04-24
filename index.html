@@ -3,204 +3,69 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SWIT1 - Ultimate API Gateway</title>
+    <title>SWIT1 - API Online System</title>
     <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@300;500;700&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --primary: #4f46e5;
-            --success: #10b981;
-            --danger: #ef4444;
-            --bg: #f8fafc;
-        }
-
-        body {
-            font-family: 'Chakra Petch', sans-serif;
-            background-color: var(--bg);
-            margin: 0;
-            padding: 40px 20px;
-            display: flex;
-            justify-content: center;
-        }
-
-        .container {
-            background: white;
-            padding: 40px;
-            border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
-            width: 100%;
-            max-width: 600px;
-        }
-
-        h2 {
-            text-align: center;
-            color: var(--primary);
-            margin-bottom: 30px;
-            font-weight: 700;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 500;
-            color: #475569;
-        }
-
-        input {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #e2e8f0;
-            border-radius: 10px;
-            box-sizing: border-box;
-            transition: all 0.3s;
-            font-size: 16px;
-        }
-
-        input:focus {
-            border-color: var(--primary);
-            outline: none;
-            box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
-        }
-
-        button {
-            width: 100%;
-            padding: 14px;
-            border: none;
-            border-radius: 10px;
-            font-size: 16px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: 0.3s;
-            margin-bottom: 10px;
-        }
-
-        .btn-save { background-color: var(--primary); color: white; }
-        .btn-save:hover { opacity: 0.9; transform: translateY(-2px); }
-
-        .status-msg {
-            padding: 15px;
-            border-radius: 10px;
-            margin-top: 20px;
-            text-align: center;
-            display: none;
-            font-weight: 500;
-        }
-
-        table {
-            width: 100%;
-            margin-top: 30px;
-            border-collapse: collapse;
-        }
-
-        th, td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #e2e8f0;
-        }
-
-        th { color: var(--primary); }
+        :root { --primary: #4f46e5; --success: #10b981; --bg: #f8fafc; }
+        body { font-family: 'Chakra Petch', sans-serif; background-color: var(--bg); padding: 40px 20px; display: flex; justify-content: center; }
+        .container { background: white; padding: 40px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); width: 100%; max-width: 600px; }
+        h2 { text-align: center; color: var(--primary); }
+        input { width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 10px; margin-bottom: 20px; box-sizing: border-box; }
+        button { width: 100%; padding: 14px; border: none; border-radius: 10px; background: var(--primary); color: white; font-weight: 700; cursor: pointer; }
+        .status-msg { padding: 15px; border-radius: 10px; margin-top: 20px; display: none; text-align: center; }
+        table { width: 100%; margin-top: 30px; border-collapse: collapse; }
+        th, td { padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: left; }
     </style>
 </head>
 <body>
-
 <div class="container">
-    <h2>🚀 SWIT1 Ultimate API</h2>
-    
-    <div class="form-group">
-        <label>ชื่อ-นามสกุล</label>
-        <input type="text" id="name" placeholder="ระบุชื่อของคุณ">
-    </div>
-    
-    <div class="form-group">
-        <label>คะแนน</label>
-        <input type="number" id="score" placeholder="0 - 100">
-    </div>
-
-    <button class="btn-save" onclick="saveData()">💾 บันทึกข้อมูลลง Google Sheets</button>
-    
+    <h2>🚀 SWIT1 Online API</h2>
+    <input type="text" id="name" placeholder="ชื่อ-นามสกุล">
+    <input type="number" id="score" placeholder="คะแนน">
+    <button onclick="saveData()">💾 บันทึกข้อมูล</button>
     <div id="status" class="status-msg"></div>
-
     <table id="historyTable">
-        <thead>
-            <tr>
-                <th>ลำดับ</th>
-                <th>ชื่อ</th>
-                <th>คะแนน</th>
-            </tr>
-        </thead>
-        <tbody>
-            </tbody>
+        <thead><tr><th>ลำดับ</th><th>ชื่อ</th><th>คะแนน</th></tr></thead>
+        <tbody></tbody>
     </table>
 </div>
 
 <script>
-    // ดึง URL ของหน้าเว็บปัจจุบันมาใช้เป็น API URL โดยอัตโนมัติ
+    // ดึง URL อัตโนมัติจากหน้าเว็บที่เปิดอยู่
     const API_URL = window.location.origin + '/api';
 
-    function showMsg(text, type) {
-        const el = document.getElementById('status');
-        el.innerText = text;
-        el.style.display = 'block';
-        el.style.backgroundColor = type === 'success' ? '#dcfce7' : '#fee2e2';
-        el.style.color = type === 'success' ? '#166534' : '#991b1b';
-    }
-
-    // 1. บันทึกข้อมูล
     async function saveData() {
         const name = document.getElementById('name').value;
         const score = document.getElementById('score').value;
-
-        if(!name || !score) return showMsg("⚠️ กรุณากรอกข้อมูลให้ครบ", "error");
+        const status = document.getElementById('status');
+        if(!name || !score) return alert("กรุณากรอกข้อมูล");
 
         try {
-            showMsg("⏳ กำลังบันทึก...", "success");
+            status.style.display = 'block'; status.innerText = "⏳ กำลังบันทึก...";
             const res = await fetch(`${API_URL}/save`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name, score })
             });
-            const result = await res.json();
-            
-            if(result.success) {
-                showMsg(`✅ บันทึกสำเร็จ! ลำดับที่: ${result.id}`, "success");
-                document.getElementById('name').value = '';
-                document.getElementById('score').value = '';
-                loadHistory(); // โหลดตารางใหม่
-            } else {
-                showMsg("❌ เกิดข้อผิดพลาดจาก Server", "error");
+            const data = await res.json();
+            if(data.success) {
+                status.innerText = "✅ บันทึกสำเร็จ!";
+                loadHistory();
             }
-        } catch (err) {
-            showMsg("❌ ไม่สามารถติดต่อ Gateway ได้ (ตรวจสอบสถานะ Server บน Render)", "error");
-        }
+        } catch (e) { status.innerText = "❌ ติดต่อ Server ไม่ได้"; }
     }
 
-    // 2. โหลดประวัติ
     async function loadHistory() {
         try {
             const res = await fetch(`${API_URL}/history`);
             const data = await res.json();
             const tbody = document.querySelector('#historyTable tbody');
-            
-            if(Array.isArray(data)) {
-                tbody.innerHTML = data.map(item => `
-                    <tr>
-                        <td><b>${item['ลำดับ'] || '-'}</b></td>
-                        <td>${item['ชื่อ'] || '-'}</td>
-                        <td>${item['คะแนน'] || '-'}</td>
-                    </tr>
-                `).reverse().join(''); // แสดงอันล่าสุดขึ้นก่อน
-            }
-        } catch (err) {
-            console.error("Load history error:", err);
-        }
+            tbody.innerHTML = data.map(item => `
+                <tr><td>${item['ลำดับ'] || '-'}</td><td>${item['ชื่อ']}</td><td>${item['คะแนน']}</td></tr>
+            `).reverse().join('');
+        } catch (e) { console.error(e); }
     }
-
-    // โหลดข้อมูลทันทีที่เปิดหน้าเว็บ
     window.onload = loadHistory;
 </script>
-
 </body>
 </html>
