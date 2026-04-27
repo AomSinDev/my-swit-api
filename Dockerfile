@@ -1,20 +1,17 @@
-# 1. เลือกสภาพแวดล้อม (เหมือนเลือกครัว) ในที่นี้คือ Node.js
-FROM node:18
+FROM node:18-slim
 
-# 2. สร้างโฟลเดอร์สำหรับเก็บงานในเครื่องจำลอง
-WORKDIR /usr/src/app
+WORKDIR /app
 
-# 3. ก๊อปปี้ไฟล์รายชื่อ Library ไปวาง
 COPY package*.json ./
-
-# 4. สั่งติดตั้ง Library (เหมือนสั่งซื้อวัตถุดิบ)
 RUN npm install
 
-# 5. ก๊อปปี้โค้ดทั้งหมดจากเครื่องเรา เข้าไปในเครื่องจำลอง
 COPY . .
 
-# 6. กำหนดพอร์ตที่จะใช้ (ในที่นี้คือ 4000 ตาม api-gateway)
-EXPOSE 4000
+# ติดตั้ง pm2 เพื่อรัน 2 process พร้อมกัน
+RUN npm install pm2 -g
 
-# 7. คำสั่งสุดท้ายเมื่อเครื่องจำลองเริ่มทำงาน
-CMD [ "npm", "start" ]
+# เปิดพอร์ตสำหรับ Gateway
+EXPOSE 10000
+
+# รันทั้งสองไฟล์พร้อมกัน
+CMD ["pm2-runtime", "start", "api-gateway.js", "--name", "gateway", "&&", "pm2-runtime", "start", "database-service.js", "--name", "db-service"]

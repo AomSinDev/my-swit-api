@@ -3,37 +3,53 @@ import axios from 'axios';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 app.use(express.static(__dirname));
 
-// DB_URL ต้องเป็น localhost เพราะรันอยู่ใน Docker กล่องเดียวกัน
-const DB_URL = "http://localhost:3000";
+// ✅ แก้ไข: ชี้ไปหา Database Service ที่รันบน port 3000 (localhost)
+const DB_SERVICE_URL = process.env.DB_SERVICE_URL || 'http://localhost:3000';
 
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
+// 1. หน้าแรก: ส่งไฟล์ index.html
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
 
+// 2. รับข้อมูลจากหน้าเว็บ -> ส่งต่อให้ Database Service บันทึกลง Supabase
 app.post('/api/save', async (req, res) => {
     try {
-        const response = await axios.post(`${DB_URL}/db/save`, req.body);
+        console.log("Gateway received data:", req.body);
+        const response = await axios.post(`${DB_SERVICE_URL}/db/save`, req.body);
         res.json(response.data);
     } catch (err) {
-        res.status(502).json({ error: "DB Service Offline" });
+        console.error("Gateway Save Error:", err.message);
+        res.status(502).json({ error: "Database Service is Offline" });
     }
 });
 
+// 3. ดึงประวัติจาก Database Service -> ส่งกลับไปแสดงที่หน้าเว็บ
 app.get('/api/history', async (req, res) => {
     try {
-        const response = await axios.get(`${DB_URL}/db/history`);
+        const response = await axios.get(`${DB_SERVICE_URL}/db/history`);
         res.json(response.data);
     } catch (err) {
-        res.status(502).json({ error: "DB Service Offline" });
+        console.error("Gateway History Error:", err.message);
+        res.status(502).json({ error: "Database Service is Offline" });
     }
 });
 
-const PORT = process.env.PORT || 10000; // Render มักใช้พอร์ต 10000
-app.listen(PORT, '0.0.0.0', () => console.log(`Gateway running on port ${PORT}`));
+// ✅ Render ต้องใช้ PORT จาก environment variable
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 API Gateway Online at port ${PORT}`);
+    console.log(`🔗 Connecting to DB Service at ${DB_SERVICE_URL}`);
+});

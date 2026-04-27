@@ -1,50 +1,70 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express from 'express';
-import { GoogleSpreadsheet } from 'google-spreadsheet';
-import { JWT } from 'google-auth-library';
+import { createClient } from '@supabase/supabase-js';
 import cors from 'cors';
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-async function getAuth() {
-    let creds;
-    if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
-        creds = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
-    } else {
-        const { default: localCreds } = await import('./swit-project-493904-bbdf1bffa80a.json', { assert: { type: 'json' } });
-        creds = localCreds;
-    }
-    return new JWT({
-        email: creds.client_email,
-        key: creds.private_key,
-        scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-    });
+// ✅ ดึงค่าจาก Environment Variables ที่ตั้งใน Render
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+    console.error("❌ Missing SUPABASE_URL or SUPABASE_KEY in environment variables!");
+    process.exit(1);
 }
 
-const auth = await getAuth();
-const doc = new GoogleSpreadsheet('1lCSVFtuio6I6LgXuHs1K6YNEzkUW8KOX3vwxuP2FLgU', auth);
+const supabase = createClient(supabaseUrl, supabaseKey);
 
+// บันทึกข้อมูลลง Supabase
 app.post('/db/save', async (req, res) => {
+    const { name, score } = req.body;
+
+    if (!name || score === undefined) {
+        return res.status(400).json({ success: false, error: "Missing name or score" });
+    }
+
     try {
-        await doc.loadInfo();
-        const sheet = doc.sheetsByIndex[0];
-        await sheet.addRow({ 
-            'ลำดับ': new Date().toLocaleString('th-TH'), 
-            'ชื่อ': req.body.name, 
-            'คะแนน': req.body.score 
-        });
-        res.json({ success: true });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+        const { data, error } = await supabase
+            .from('swit_data')
+            .insert([{ name: name, score: parseInt(score) }])
+            .select();
+
+        if (error) throw error;
+        res.json({ success: true, data });
+    } catch (err) {
+        console.error("Save Error:", err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
 });
 
+// ดึงประวัติทั้งหมดจาก Supabase
 app.get('/db/history', async (req, res) => {
     try {
-        await doc.loadInfo();
-        const sheet = doc.sheetsByIndex[0];
-        const rows = await sheet.getRows();
-        res.json(rows.map(r => r.toObject()));
-    } catch (err) { res.status(500).json({ error: err.message }); }
+        const { data, error } = await supabase
+            .from('swit_data')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        res.json(data);
+    } catch (err) {
+        console.error("Load Error:", err.message);
+        res.status(500).json({ error: err.message });
+    }
 });
 
-app.listen(3000, '0.0.0.0', () => console.log('Database Service running on port 3000'));
+// ✅ Health check endpoint (มีประโยชน์สำหรับ Render)
+app.get('/health', (req, res) => {
+    res.json({ status: 'ok', service: 'database-service' });
+});
+
+const PORT = 3000;
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`✅ Database Service (Supabase) running on port ${PORT}`);
+    console.log(`🔗 Supabase URL: ${supabaseUrl}`);
+});
