@@ -1,18 +1,15 @@
 {
-  "name": "swit03",
+  "name": "swit-microservice",
   "version": "1.0.0",
   "type": "module",
-  "description": "Project for SWIT API",
   "main": "api-gateway.js",
   "scripts": {
-    "start": "concurrently \"node database-service.js\" \"node api-gateway.js\""
+    "start": "node api-gateway.js"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.104.1",
     "axios": "^1.15.2",
-    "concurrently": "^8.2.2",
     "cors": "^2.8.6",
-    "express": "^5.2.1",
-    "google-auth-library": "^10.6.2",
-    "google-spreadsheet": "^5.2.0"
+    "express": "^5.2.1"
   }
 }

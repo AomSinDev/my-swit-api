@@ -1,17 +1,23 @@
-FROM node:18-slim
+FROM node:20-alpine
+
+# ติดตั้ง supervisor สำหรับรัน 2 process พร้อมกัน
+RUN apk add --no-cache supervisor
 
 WORKDIR /app
 
-COPY package*.json ./
+# Copy และติดตั้ง dependencies
+COPY package.json ./
 RUN npm install
 
-COPY . .
+# Copy ไฟล์ทั้งหมด
+COPY api-gateway.js .
+COPY database-service.js .
+COPY index.html .
 
-# ติดตั้ง pm2 เพื่อรัน 2 process พร้อมกัน
-RUN npm install pm2 -g
+# Config supervisor ให้รัน 2 service
+RUN mkdir -p /etc/supervisor/conf.d
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
-# เปิดพอร์ตสำหรับ Gateway
 EXPOSE 10000
 
-# รันทั้งสองไฟล์พร้อมกัน
-CMD ["pm2-runtime", "start", "api-gateway.js", "--name", "gateway", "&&", "pm2-runtime", "start", "database-service.js", "--name", "db-service"]
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]

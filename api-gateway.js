@@ -4,28 +4,24 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-
 app.use(cors());
 app.use(express.json());
 app.use(express.static(__dirname));
 
-// ✅ แก้ไข: ชี้ไปหา Database Service ที่รันบน port 3000 (localhost)
+// ✅ คุยกับ database-service ที่รันอยู่ใน container เดียวกัน
 const DB_SERVICE_URL = process.env.DB_SERVICE_URL || 'http://localhost:3000';
 
-// 1. หน้าแรก: ส่งไฟล์ index.html
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// 2. รับข้อมูลจากหน้าเว็บ -> ส่งต่อให้ Database Service บันทึกลง Supabase
 app.post('/api/save', async (req, res) => {
     try {
-        console.log("Gateway received data:", req.body);
+        console.log("📨 Gateway → DB Service: save", req.body);
         const response = await axios.post(`${DB_SERVICE_URL}/db/save`, req.body);
         res.json(response.data);
     } catch (err) {
@@ -34,20 +30,19 @@ app.post('/api/save', async (req, res) => {
     }
 });
 
-// 3. ดึงประวัติจาก Database Service -> ส่งกลับไปแสดงที่หน้าเว็บ
 app.get('/api/history', async (req, res) => {
     try {
+        console.log("📨 Gateway → DB Service: history");
         const response = await axios.get(`${DB_SERVICE_URL}/db/history`);
         res.json(response.data);
     } catch (err) {
         console.error("Gateway History Error:", err.message);
-        res.status(502).json({ error: "Database Service is Offline" });
+        res.status(502).json([]);
     }
 });
 
-// ✅ Render ต้องใช้ PORT จาก environment variable
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 API Gateway Online at port ${PORT}`);
-    console.log(`🔗 Connecting to DB Service at ${DB_SERVICE_URL}`);
+    console.log(`🚀 API Gateway running on port ${PORT}`);
+    console.log(`🔗 DB Service: ${DB_SERVICE_URL}`);
 });
