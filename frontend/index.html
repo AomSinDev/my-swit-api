@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SWIT - Supabase Online System</title>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@300;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --success: #10b981;
+            --danger: #ef4444;
+            --bg: #f8fafc;
+        }
+
+        body {
+            font-family: 'Chakra Petch', sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            padding: 40px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* ───── User Profile Bar ───── */
+        /*
+         * แสดงข้อมูล Google account ที่ login อยู่
+         * ดึงมาจาก /api/auth/me ตอนโหลดหน้า
+         */
+        .user-bar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: white;
+            padding: 12px 20px;
+            border-radius: 50px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+            margin-bottom: 24px;
+            width: 100%;
+            max-width: 600px;
+            box-sizing: border-box;
+        }
+
+        .user-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .user-info {
+            flex: 1;
+        }
+
+        .user-name {
+            font-weight: 700;
+            color: #1e293b;
+            font-size: 0.9rem;
+        }
+
+        .user-email {
+            color: #64748b;
+            font-size: 0.75rem;
+        }
+
+        .logout-btn {
+            padding: 6px 14px;
+            border: 2px solid #e2e8f0;
+            border-radius: 20px;
+            background: white;
+            color: #64748b;
+            font-size: 0.8rem;
+            font-family: inherit;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .logout-btn:hover {
+            border-color: var(--danger);
+            color: var(--danger);
+        }
+
+        /* ───── Main Card ───── */
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+            width: 100%;
+            max-width: 600px;
+        }
+
+        h2 {
+            text-align: center;
+            color: var(--primary);
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-family: inherit;
+            box-sizing: border-box;
+            transition: border-color 0.3s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 10px;
+            background: var(--primary);
+            color: white;
+            font-size: 16px;
+            font-weight: 700;
+            font-family: inherit;
+            cursor: pointer;
+            transition: opacity 0.3s;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        .status-msg {
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            display: none;
+            text-align: center;
+            font-weight: 500;
+        }
+
+        table {
+            width: 100%;
+            margin-top: 30px;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 12px;
+            border-bottom: 1px solid #e2e8f0;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f1f5f9;
+            color: #64748b;
+        }
+
+        /* Loading skeleton */
+        .loading-row td {
+            color: #94a3b8;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<!-- User Profile Bar: แสดงชื่อ, email, รูปภาพจาก Google และปุ่ม Logout -->
+<div class="user-bar" id="userBar" style="display:none;">
+    <img class="user-avatar" id="userAvatar" src="" alt="avatar">
+    <div class="user-info">
+        <div class="user-name" id="userName">-</div>
+        <div class="user-email" id="userEmail">-</div>
+    </div>
+    <!-- Logout → เรียก /api/auth/logout ซึ่งจะลบ cookie และ redirect ไปหน้า login -->
+    <a href="/api/auth/logout" class="logout-btn">ออกจากระบบ</a>
+</div>
+
+<div class="container">
+    <h2>🚀 SWIT Supabase System</h2>
+    
+    <div class="form-group">
+        <label>ชื่อ-นามสกุล</label>
+        <input type="text" id="name" placeholder="กรอกชื่อของคุณ">
+    </div>
+
+    <div class="form-group">
+        <label>คะแนน</label>
+        <input type="number" id="score" placeholder="กรอกคะแนน">
+    </div>
+
+    <button onclick="saveData()">💾 บันทึกข้อมูล</button>
+
+    <div id="status" class="status-msg"></div>
+
+    <h3>📊 ประวัติของฉัน</h3>
+    <table id="historyTable">
+        <thead>
+            <tr>
+                <th>วัน-เวลา</th>
+                <th>ชื่อ</th>
+                <th>คะแนน</th>
+            </tr>
+        </thead>
+        <tbody id="historyBody">
+            <tr class="loading-row"><td colspan="3">⏳ กำลังโหลด...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+    const API_URL = window.location.origin + '/api';
+
+    /**
+     * checkAuth()
+     * เรียก GET /api/auth/me เพื่อดึงข้อมูล user ที่ login อยู่
+     * ถ้า 401 (ไม่ได้ login) → browser จะถูก redirect ไป /login.html โดย server
+     * ถ้า login อยู่ → แสดง user bar พร้อมชื่อ, email, รูป
+     */
+    async function checkAuth() {
+        try {
+            const res = await fetch(`${API_URL}/auth/me`);
+            if (!res.ok) {
+                window.location.href = '/login.html';
+                return;
+            }
+            const { user } = await res.json();
+
+            // แสดง user bar
+            document.getElementById('userBar').style.display = 'flex';
+            document.getElementById('userName').textContent  = user.name;
+            document.getElementById('userEmail').textContent = user.email;
+            if (user.picture) {
+                document.getElementById('userAvatar').src = user.picture;
+            }
+        } catch {
+            window.location.href = '/login.html';
+        }
+    }
+
+    /**
+     * saveData()
+     * POST /api/save ← api-gateway จะแนบ user_email จาก session ให้เองที่ server
+     * Frontend ไม่ต้องส่ง email (ป้องกันการปลอม email)
+     */
+    async function saveData() {
+        const name  = document.getElementById('name').value;
+        const score = document.getElementById('score').value;
+        const status = document.getElementById('status');
+
+        if (!name || !score) {
+            alert('กรุณากรอกข้อมูลให้ครบถ้วน');
+            return;
+        }
+
+        try {
+            status.style.display = 'block';
+            status.style.backgroundColor = '#fef3c7';
+            status.style.color = '#92400e';
+            status.innerText = '⏳ กำลังบันทึกข้อมูล...';
+
+            const res = await fetch(`${API_URL}/save`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, score })
+                // หมายเหตุ: ไม่ต้องส่ง user_email จาก Frontend
+                // api-gateway จะอ่านจาก signed cookie และแนบให้เองที่ server side
+            });
+
+            const result = await res.json();
+
+            if (result.success) {
+                status.style.backgroundColor = '#d1fae5';
+                status.style.color = '#065f46';
+                status.innerText = '✅ บันทึกลง Supabase สำเร็จ!';
+
+                document.getElementById('name').value  = '';
+                document.getElementById('score').value = '';
+                
+                loadHistory();
+            } else {
+                throw new Error(result.error);
+            }
+        } catch (err) {
+            status.style.display = 'block';
+            status.style.backgroundColor = '#fee2e2';
+            status.style.color = '#991b1b';
+            status.innerText = '❌ เกิดข้อผิดพลาด: ' + err.message;
+        }
+    }
+
+    /**
+     * loadHistory()
+     * GET /api/history ← api-gateway จะส่ง user_email ไปที่ database-service
+     * ได้รับกลับมาเฉพาะข้อมูลของ Google account ที่ login อยู่
+     */
+    async function loadHistory() {
+        try {
+            const res  = await fetch(`${API_URL}/history`);
+            const data = await res.json();
+            const tbody = document.getElementById('historyBody');
+
+            if (Array.isArray(data) && data.length > 0) {
+                tbody.innerHTML = data.map(item => `
+                    <tr>
+                        <td style="font-size: 0.85em; color: #64748b;">
+                            ${new Date(item.created_at).toLocaleString('th-TH')}
+                        </td>
+                        <td><b>${item.name}</b></td>
+                        <td>${item.score}</td>
+                    </tr>
+                `).join('');
+            } else {
+                tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#94a3b8;">ยังไม่มีข้อมูล</td></tr>';
+            }
+        } catch (err) {
+            console.error('Load history error:', err);
+        }
+    }
+
+    // โหลดหน้า: เช็ค auth ก่อน แล้วค่อยโหลด history
+    window.onload = async () => {
+        await checkAuth();
+        await loadHistory();
+    };
+</script>
+
+</body>
+</html>

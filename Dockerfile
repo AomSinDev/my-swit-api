@@ -5,19 +5,27 @@ RUN apk add --no-cache supervisor
 
 WORKDIR /app
 
-# Copy และติดตั้ง dependencies
+# ── Copy package.json และติดตั้ง dependencies ก่อน ──
+# แยก step นี้ออกมาเพื่อใช้ Docker layer cache
+# ถ้าไม่แก้ package.json จะไม่ต้อง npm install ใหม่ทุกครั้ง
 COPY package.json ./
 RUN npm install
 
-# Copy ไฟล์ทั้งหมด
-COPY api-gateway.js .
-COPY database-service.js .
-COPY index.html .
+# ── Copy แต่ละโฟลเดอร์เข้าสู่ /app ──
+# โครงสร้างใน container จะเป็น:
+#   /app/api-gateway/api-gateway.js
+#   /app/database-service/database-service.js
+#   /app/frontend/index.html
+#   /app/frontend/login.html
+COPY api-gateway/     ./api-gateway/
+COPY database-service/ ./database-service/
+COPY frontend/        ./frontend/
 
-# Config supervisor ให้รัน 2 service
+# ── Config supervisor ──
 RUN mkdir -p /etc/supervisor/conf.d
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
+# เปิด port ของ api-gateway
 EXPOSE 10000
 
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
