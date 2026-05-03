@@ -33,16 +33,12 @@ import { fileURLToPath } from 'url';
 import { google } from 'googleapis';
 
 // ─── Path helpers ──────────────────────────────────────────────────────────────
-// ESM ไม่มี __dirname ต้องสร้างเอง
-// __dirname จะชี้ไปที่ /app/api-gateway/ (ใน Docker)
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
 /**
  * FRONTEND_DIR — ชี้ไปที่โฟลเดอร์ frontend/ ที่อยู่ระดับ sibling
- * โครงสร้างใน Docker:
- *   /app/api-gateway/api-gateway.js  ← __dirname = /app/api-gateway
- *   /app/frontend/index.html         ← FRONTEND_DIR = /app/frontend
+ * /app/api-gateway/api-gateway.js → FRONTEND_DIR = /app/frontend
  */
 const FRONTEND_DIR = path.resolve(__dirname, '../frontend');
 
@@ -50,18 +46,7 @@ const FRONTEND_DIR = path.resolve(__dirname, '../frontend');
 const app = express();
 app.use(cors());
 app.use(express.json());
-
-/**
- * cookieParser(SECRET) — ใช้ SECRET เพื่อ "sign" cookie
- * cookie ที่ถูก sign จะมี prefix "s:" และตรวจสอบได้ว่าไม่ถูกแก้ไข
- */
 app.use(cookieParser(process.env.COOKIE_SECRET || 'swit-super-secret-key'));
-
-/**
- * express.static(FRONTEND_DIR)
- * เสิร์ฟไฟล์ static ทั้งหมดจากโฟลเดอร์ frontend/
- * เช่น /index.html, /login.html, รวมถึง css/js ที่อาจเพิ่มทีหลัง
- */
 app.use(express.static(FRONTEND_DIR));
 
 // ─── Environment variables ────────────────────────────────────────────────────
@@ -70,29 +55,45 @@ const PORT           = process.env.PORT            || 10000;
 const REDIRECT_URI   = process.env.REDIRECT_URI    || `http://localhost:${PORT}/api/auth/cookie`;
 
 // ─── Google OAuth2 Client ─────────────────────────────────────────────────────
-/**
- * สร้าง OAuth2 client จาก googleapis
- * CLIENT_ID และ CLIENT_SECRET ได้จาก Google Cloud Console
- * หมายเหตุ: ใน .env สะกดว่า CLEINT_ID (typo เดิม) ไม่ได้แก้เพื่อไม่ให้ต้องแก้ Google Console
- */
 const oauth2Client = new google.auth.OAuth2(
-    process.env.CLEINT_ID,
+    process.env.CLEINT_ID,      // หมายเหตุ: typo เดิมใน .env คงไว้
     process.env.CLIENT_SECRET,
     REDIRECT_URI
 );
 
-// Scope ที่ขอจาก Google: email, ชื่อ, รูปโปรไฟล์
 const SCOPES = [
     'https://www.googleapis.com/auth/userinfo.email',
     'https://www.googleapis.com/auth/userinfo.profile',
     'openid'
 ];
 
+// ─── Retry Helper ─────────────────────────────────────────────────────────────
+/**
+ * fetchWithRetry — ลองเรียก database-service ซ้ำถ้าล้มเหลว
+ * แก้ปัญหา Render Free tier ที่ service อาจยังตื่นไม่เต็มที่ตอนแรก
+ *
+ * @param {Function} fn      - async function ที่จะลองรัน
+ * @param {number}   retries - จำนวนครั้งที่ลองซ้ำ (default: 5)
+ * @param {number}   delay   - รอกี่ ms ระหว่างแต่ละครั้ง (default: 3000 = 3 วินาที)
+ *
+ * รวมแล้วรอสูงสุด 5 × 3 = 15 วินาที ก่อน throw error
+ */
+async function fetchWithRetry(fn, retries = 5, delay = 3000) {
+    for (let i = 0; i < retries; i++) {
+        try {
+            return await fn();
+        } catch (err) {
+            if (i === retries - 1) throw err;
+            console.log(`⏳ DB not ready, retry ${i + 1}/${retries} in ${delay}ms...`);
+            await new Promise(r => setTimeout(r, delay));
+        }
+    }
+}
+
 // ─── Middleware: ตรวจสอบ session ─────────────────────────────────────────────
 /**
  * requireAuth — ป้องกัน routes ที่ต้องการ login
- * อ่าน signed cookie "user_session" และ parse เป็น object user
- * ถ้าไม่มี หรือ invalid → redirect ไปหน้า login
+ * ถ้าไม่มี cookie หรือ invalid → redirect ไปหน้า login
  */
 function requireAuth(req, res, next) {
     try {
@@ -114,57 +115,46 @@ function requireAuth(req, res, next) {
 
 /**
  * GET /api/auth/login
- * สร้าง Google login URL แล้ว redirect browser ไปหา Google
+ * สร้าง Google login URL แล้ว redirect ไปหา Google
  */
 app.get('/api/auth/login', (req, res) => {
     const authUrl = oauth2Client.generateAuthUrl({
         access_type: 'offline',
         scope: SCOPES,
-        prompt: 'select_account'  // บังคับเลือก account ทุกครั้ง
+        prompt: 'select_account'
     });
     console.log('🔐 Redirecting to Google login...');
     res.redirect(authUrl);
 });
 
 /**
- * GET /api/auth/cookie  ← ชื่อนี้ตรงกับที่ตั้งไว้ใน Google Cloud Console
+ * GET /api/auth/cookie
  * Google redirect กลับมาพร้อม ?code=...
- * แลก code → token → ดึง profile → เก็บใน signed cookie → redirect หน้าหลัก
+ * แลก code → token → ดึง profile → เก็บใน cookie → redirect หน้าหลัก
  */
 app.get('/api/auth/cookie', async (req, res) => {
     const { code, error } = req.query;
 
-    // กรณี user กด Cancel ที่หน้า Google
     if (error || !code) {
         console.error('❌ OAuth error:', error);
         return res.redirect('/login.html?error=access_denied');
     }
 
     try {
-        // แลก authorization code → access_token
         const { tokens } = await oauth2Client.getToken(code);
         oauth2Client.setCredentials(tokens);
 
-        // ดึงข้อมูล profile จาก Google
         const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
         const { data: profile } = await oauth2.userinfo.get();
 
         console.log(`✅ Google login: ${profile.email}`);
 
-        // เก็บเฉพาะข้อมูลที่จำเป็นลงใน session cookie
         const sessionData = JSON.stringify({
             email:   profile.email,
             name:    profile.name,
             picture: profile.picture
         });
 
-        /**
-         * Signed cookie "user_session"
-         * - httpOnly: true  → JS ฝั่ง browser อ่านไม่ได้ (ป้องกัน XSS)
-         * - secure: true    → HTTPS เท่านั้น (production)
-         * - maxAge: 7 วัน
-         * - sameSite: lax   → ป้องกัน CSRF เบื้องต้น
-         */
         const isProduction = process.env.NODE_ENV === 'production';
         res.cookie('user_session', sessionData, {
             signed:   true,
@@ -183,7 +173,7 @@ app.get('/api/auth/cookie', async (req, res) => {
 
 /**
  * GET /api/auth/logout
- * ลบ cookie แล้ว redirect ไปหน้า login
+ * ลบ cookie → redirect ไปหน้า login
  */
 app.get('/api/auth/logout', (req, res) => {
     res.clearCookie('user_session');
@@ -193,8 +183,7 @@ app.get('/api/auth/logout', (req, res) => {
 
 /**
  * GET /api/auth/me
- * Frontend เรียกเพื่อเช็คว่า login อยู่ไหม และดึงข้อมูล user
- * ถ้าไม่ได้ login → 401
+ * Frontend เช็คว่า login อยู่ไหม
  */
 app.get('/api/auth/me', requireAuth, (req, res) => {
     res.json({ loggedIn: true, user: req.user });
@@ -207,8 +196,8 @@ app.get('/api/auth/me', requireAuth, (req, res) => {
 /**
  * POST /api/save
  * รับ { name, score } จาก frontend
- * inject user_email จาก session ก่อนส่งไป database-service
- * → browser ปลอม email ไม่ได้เพราะอ่านจาก httpOnly cookie ฝั่ง server
+ * inject user_email จาก session → ส่งไป database-service
+ * ใช้ fetchWithRetry เพื่อรองรับ Render Free ที่ DB อาจยังตื่นไม่เต็มที่
  */
 app.post('/api/save', requireAuth, async (req, res) => {
     try {
@@ -216,8 +205,10 @@ app.post('/api/save', requireAuth, async (req, res) => {
             ...req.body,
             user_email: req.user.email
         };
-        console.log(`📨 Gateway → DB: save [${req.user.email}]`, payload);
-        const response = await axios.post(`${DB_SERVICE_URL}/db/save`, payload);
+        console.log(`📨 Gateway → DB: save [${req.user.email}]`);
+        const response = await fetchWithRetry(() =>
+            axios.post(`${DB_SERVICE_URL}/db/save`, payload)
+        );
         res.json(response.data);
     } catch (err) {
         console.error('Gateway Save Error:', err.message);
@@ -227,15 +218,17 @@ app.post('/api/save', requireAuth, async (req, res) => {
 
 /**
  * GET /api/history
- * ส่ง user_email ใน query string ไปให้ database-service filter
- * → แต่ละ user เห็นเฉพาะข้อมูลของตัวเอง
+ * ส่ง user_email ไปให้ database-service filter
+ * ใช้ fetchWithRetry เพื่อรองรับ Render Free ที่ DB อาจยังตื่นไม่เต็มที่
  */
 app.get('/api/history', requireAuth, async (req, res) => {
     try {
         console.log(`📨 Gateway → DB: history [${req.user.email}]`);
-        const response = await axios.get(`${DB_SERVICE_URL}/db/history`, {
-            params: { user_email: req.user.email }
-        });
+        const response = await fetchWithRetry(() =>
+            axios.get(`${DB_SERVICE_URL}/db/history`, {
+                params: { user_email: req.user.email }
+            })
+        );
         res.json(response.data);
     } catch (err) {
         console.error('Gateway History Error:', err.message);
@@ -247,20 +240,10 @@ app.get('/api/history', requireAuth, async (req, res) => {
 //  PAGE ROUTES
 // ════════════════════════════════════════════════════════
 
-/**
- * GET /
- * หน้าหลัก — ต้อง login ก่อน
- * sendFile ชี้ไปที่ frontend/index.html
- */
 app.get('/', requireAuth, (req, res) => {
     res.sendFile(path.join(FRONTEND_DIR, 'index.html'));
 });
 
-/**
- * GET /login.html
- * หน้า login — ไม่ต้อง auth
- * sendFile ชี้ไปที่ frontend/login.html
- */
 app.get('/login.html', (req, res) => {
     res.sendFile(path.join(FRONTEND_DIR, 'login.html'));
 });
